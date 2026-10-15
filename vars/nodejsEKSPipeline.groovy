@@ -1,10 +1,10 @@
 def call() {
-    def appVersion = ''
-
+    
     pipeline {
         agent { label 'AGENT-1' }
 
         environment {
+            APP_VERSION = ''
             REGION    = "us-east-1"
             ACC_ID    = "211125615103"
             PROJECT   = configMap.get('project')
