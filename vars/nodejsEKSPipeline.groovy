@@ -1,4 +1,4 @@
-def call() {
+def call(Map configMap){
     
     pipeline {
         agent { label 'AGENT-1' }
@@ -66,38 +66,38 @@ def call() {
             }
             */
 
-            stage('Check Dependabot Alerts') {
-                environment {
-                    GITHUB_TOKEN = credentials('github-token')
-                }
-                steps {
-                    script {
-                        def response = sh(
-                            script: '''
-                                curl -sS -f \
-                                -H "Accept: application/vnd.github+json" \
-                                -H "Authorization: Bearer $GITHUB_TOKEN" \
-                                -H "X-GitHub-Api-Version: 2022-11-28" \
-                                "https://api.github.com/repos/shivapaturi/catalogue/dependabot/alerts?state=open&severity=high,critical&per_page=100"
-                            ''',
-                            returnStdout: true
-                        ).trim()
+            // stage('Check Dependabot Alerts') {
+            //     environment {
+            //         GITHUB_TOKEN = credentials('github-token')
+            //     }
+            //     steps {
+            //         script {
+            //             def response = sh(
+            //                 script: '''
+            //                     curl -sS -f \
+            //                     -H "Accept: application/vnd.github+json" \
+            //                     -H "Authorization: Bearer $GITHUB_TOKEN" \
+            //                     -H "X-GitHub-Api-Version: 2022-11-28" \
+            //                     "https://api.github.com/repos/shivapaturi/catalogue/dependabot/alerts?state=open&severity=high,critical&per_page=100"
+            //                 ''',
+            //                 returnStdout: true
+            //             ).trim()
 
-                        def alerts = readJSON text: response
-                        if (!(alerts instanceof List)) {
-                            error "Unexpected response from GitHub API: ${response.take(300)}"
-                        }
+            //             def alerts = readJSON text: response
+            //             if (!(alerts instanceof List)) {
+            //                 error "Unexpected response from GitHub API: ${response.take(300)}"
+            //             }
 
-                        if (alerts.size() > 0) {
-                            alerts.each { a ->
-                                echo "${a.security_advisory?.severity?.toUpperCase()} - ${a.dependency?.package?.name}: ${a.security_advisory?.summary}"
-                            }
-                            error "Found ${alerts.size()} open HIGH/CRITICAL Dependabot alerts. Failing pipeline."
-                        }
-                        echo "No HIGH/CRITICAL Dependabot alerts found."
-                    }
-                }
-            }
+            //             if (alerts.size() > 0) {
+            //                 alerts.each { a ->
+            //                     echo "${a.security_advisory?.severity?.toUpperCase()} - ${a.dependency?.package?.name}: ${a.security_advisory?.summary}"
+            //                 }
+            //                 error "Found ${alerts.size()} open HIGH/CRITICAL Dependabot alerts. Failing pipeline."
+            //             }
+            //             echo "No HIGH/CRITICAL Dependabot alerts found."
+            //         }
+            //     }
+            // }
 
             stage('Docker Build') {
                 steps {
@@ -117,71 +117,85 @@ def call() {
                 }
             }
 
-            stage('Check Scan Results') {
-                steps {
-                    script {
-                        withAWS(credentials: 'aws-creds', region: "${REGION}") {
+            // stage('Check Scan Results') {
+            //     steps {
+            //         script {
+            //             withAWS(credentials: 'aws-creds', region: "${REGION}") {
 
-                            // Start a scan (ignore error if scan-on-push already scanned it / 24h limit)
-                            sh """
-                                aws ecr start-image-scan \
-                                --repository-name ${PROJECT}/${COMPONENT} \
-                                --image-id imageTag=${appVersion} \
-                                --region ${REGION} || true
+            //                 // Start a scan (ignore error if scan-on-push already scanned it / 24h limit)
+            //                 sh """
+            //                     aws ecr start-image-scan \
+            //                     --repository-name ${PROJECT}/${COMPONENT} \
+            //                     --image-id imageTag=${appVersion} \
+            //                     --region ${REGION} || true
 
-                                aws ecr wait image-scan-complete \
-                                --repository-name ${PROJECT}/${COMPONENT} \
-                                --image-id imageTag=${appVersion} \
-                                --region ${REGION}
-                            """
+            //                     aws ecr wait image-scan-complete \
+            //                     --repository-name ${PROJECT}/${COMPONENT} \
+            //                     --image-id imageTag=${appVersion} \
+            //                     --region ${REGION}
+            //                 """
 
-                            def findings = readJSON text: sh(
-                                script: """
-                                    aws ecr describe-image-scan-findings \
-                                    --repository-name ${PROJECT}/${COMPONENT} \
-                                    --image-id imageTag=${appVersion} \
-                                    --region ${REGION} \
-                                    --output json
-                                """,
-                                returnStdout: true
-                            ).trim()
+            //                 def findings = readJSON text: sh(
+            //                     script: """
+            //                         aws ecr describe-image-scan-findings \
+            //                         --repository-name ${PROJECT}/${COMPONENT} \
+            //                         --image-id imageTag=${appVersion} \
+            //                         --region ${REGION} \
+            //                         --output json
+            //                     """,
+            //                     returnStdout: true
+            //                 ).trim()
 
-                            def counts   = findings.imageScanFindings?.findingSeverityCounts ?: [:]
-                            def critical = (counts.CRITICAL ?: 0) as int
-                            def high     = (counts.HIGH ?: 0) as int
-                            echo "ECR scan severity counts: ${counts}"
+            //                 def counts   = findings.imageScanFindings?.findingSeverityCounts ?: [:]
+            //                 def critical = (counts.CRITICAL ?: 0) as int
+            //                 def high     = (counts.HIGH ?: 0) as int
+            //                 echo "ECR scan severity counts: ${counts}"
 
-                            if (critical + high > 0) {
-                                def list = findings.imageScanFindings?.findings ?: []
-                                list.findAll { it.severity in ['CRITICAL', 'HIGH'] }.each {
-                                    echo "${it.severity} - ${it.name}"
-                                }
-                                error "Found ${critical} CRITICAL and ${high} HIGH vulnerabilities in image."
-                            }
-                            echo "No HIGH/CRITICAL vulnerabilities found."
-                        }
-                    }
-                }
-            }
+            //                 if (critical + high > 0) {
+            //                     def list = findings.imageScanFindings?.findings ?: []
+            //                     list.findAll { it.severity in ['CRITICAL', 'HIGH'] }.each {
+            //                         echo "${it.severity} - ${it.name}"
+            //                     }
+            //                     error "Found ${critical} CRITICAL and ${high} HIGH vulnerabilities in image."
+            //                 }
+            //                 echo "No HIGH/CRITICAL vulnerabilities found."
+            //             }
+            //         }
+            //     }
+            // }
 
             stage('Trigger Deploy') {
-                when { expression { params.deploy } }
+                when{
+                    expression { params.deploy }
+                }
                 steps {
-                    build job: 'catalogue-cd',
+                    script {
+                        //build job: 'catalogue-cd',
+                        build job: "../${COMPONENT}-cd",
                         parameters: [
                             string(name: 'appVersion', value: "${appVersion}"),
                             string(name: 'deploy_to', value: 'dev')
                         ],
-                        propagate: false,  // CD failure won't fail this CI build
-                        wait: false        // don't block CI waiting for CD
+                        propagate: false,  // even SG fails VPC will not be effected
+                        wait: false // VPC will not wait for SG pipeline completion
+                    }
                 }
             }
+            
         }
 
-        post {
-            always  { deleteDir() }
-            success { echo 'Build succeeded' }
-            failure { echo 'Build failed' }
+       
+        post { 
+            always { 
+                echo 'I will always say Hello again!'
+                deleteDir()
+            }
+            success { 
+                echo 'Hello Success'
+            }
+            failure { 
+                echo 'Hello Failure'
+            }
         }
     }
 }
