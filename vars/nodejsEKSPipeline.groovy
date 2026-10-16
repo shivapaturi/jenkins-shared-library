@@ -156,19 +156,21 @@ def call(Map configMap){
                 }
             } */
             stage('Trigger Deploy') {
-                when{
-                    expression { params.deploy }
+                when {
+                    expression {
+                        params.deploy
+                    }
                 }
+
                 steps {
                     script {
-                        //build job: 'catalogue-cd',
                         build job: "../${COMPONENT}-cd",
-                        parameters: [
-                            string(name: 'appVersion', value: "${env.APP_VERSION}")
-                            string(name: 'deploy_to', value: 'dev')
-                        ],
-                        propagate: false,  // even SG fails VPC will not be effected
-                        wait: false // VPC will not wait for SG pipeline completion
+                            parameters: [
+                                string(name: 'appVersion', value: "${appVersion}"),
+                                string(name: 'deploy_to', value: 'dev')
+                            ],
+                            propagate: false,
+                            wait: false
                     }
                 }
             }
