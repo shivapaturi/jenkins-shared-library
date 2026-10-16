@@ -6,7 +6,7 @@ def call(Map configMap){
         environment { 
             appVersion = ''
             REGION = "us-east-1"
-            ACC_ID = "211125615103"
+            ACC_ID = "160885265516"
             PROJECT = configMap.get('project')
             COMPONENT = configMap.get('component')
         }
@@ -18,15 +18,16 @@ def call(Map configMap){
             booleanParam(name: 'deploy', defaultValue: false, description: 'Toggle this value')
         }
         // Build
-        stage('Read package.json') {
-            steps {
-                script {
-                    def packageJson = readJSON file: 'package.json'
-                    env.APP_VERSION = packageJson.version?.toString()?.trim()
-                    echo "Package version: ${env.APP_VERSION}"
+        stages {
+            stage('Read package.json') {
+                steps {
+                    script {
+                        def packageJson = readJSON file: 'package.json'
+                        appVersion = packageJson.version
+                        echo "Package version: ${appVersion}"
+                    }
                 }
             }
-        }
             stage('Install Dependencies') {
                 steps {
                     script {
@@ -102,20 +103,12 @@ def call(Map configMap){
             stage('Docker Build') {
                 steps {
                     script {
-                        withAWS(credentials: 'aws-creds', region: "${env.REGION}") {
+                        withAWS(credentials: 'aws-creds', region: 'us-east-1') {
                             sh """
-                                aws ecr get-login-password \
-                                --region ${env.REGION} | \
-                                docker login \
-                                --username AWS \
-                                --password-stdin ${env.ACC_ID}.dkr.ecr.${env.REGION}.amazonaws.com
-
-                                docker buildx build \
-                                --platform linux/amd64 \
-                                --provenance=false \
-                                --sbom=false \
-                                -t ${env.ACC_ID}.dkr.ecr.${env.REGION}.amazonaws.com/${env.PROJECT}/${env.COMPONENT}:${env.APP_VERSION} \
-                                --push .
+                                aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com
+                                docker build -t ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion} .
+                                docker push ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion}
+                                #aws ecr wait image-scan-complete --repository-name ${PROJECT}/${COMPONENT} --image-id imageTag=${appVersion} --region ${REGION}
                             """
                         }
                     }
@@ -156,21 +149,19 @@ def call(Map configMap){
                 }
             } */
             stage('Trigger Deploy') {
-                when {
-                    expression {
-                        params.deploy
-                    }
+                when{
+                    expression { params.deploy }
                 }
-
                 steps {
                     script {
+                        //build job: 'catalogue-cd',
                         build job: "../${COMPONENT}-cd",
-                            parameters: [
-                                string(name: 'appVersion', value: "${appVersion}"),
-                                string(name: 'deploy_to', value: 'dev')
-                            ],
-                            propagate: false,
-                            wait: false
+                        parameters: [
+                            string(name: 'appVersion', value: "${appVersion}"),
+                            string(name: 'deploy_to', value: 'dev')
+                        ],
+                        propagate: false,  // even SG fails VPC will not be effected
+                        wait: false // VPC will not wait for SG pipeline completion
                     }
                 }
             }
