@@ -65,11 +65,11 @@ def call(Map configMap) {
                                 --password-stdin ${env.ACC_ID}.dkr.ecr.${env.REGION}.amazonaws.com
 
                                 docker buildx build \
-                                --platform linux/amd64 \
-                                --provenance=false \
-                                --sbom=false \
-                                -t ${env.ACC_ID}.dkr.ecr.${env.REGION}.amazonaws.com/${env.PROJECT}/${env.COMPONENT}:${env.APP_VERSION} \
-                                --push .
+                                    --platform linux/amd64 \
+                                    --provenance=false \
+                                    --sbom=false \
+                                    -t ${env.ACC_ID}.dkr.ecr.${env.REGION}.amazonaws.com/${env.PROJECT}/${env.COMPONENT}:${env.APP_VERSION} \
+                                    --push 
                             """
                         }
                     }
