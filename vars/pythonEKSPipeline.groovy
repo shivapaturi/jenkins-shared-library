@@ -53,29 +53,20 @@ def call(Map configMap) {
                     '''
                 }
             }
-            stage('Docker Build') {
+              stage('Docker Build') {
                 steps {
                     script {
-                        withAWS(credentials: 'aws-creds', region: env.REGION) {
+                        withAWS(credentials: 'aws-creds', region: 'us-east-1') {
                             sh """
-                                aws ecr get-login-password \
-                                --region ${env.REGION} |
-                                docker login \
-                                --username AWS \
-                                --password-stdin ${env.ACC_ID}.dkr.ecr.${env.REGION}.amazonaws.com
-
-                                docker buildx build \
-                                    --platform linux/amd64 \
-                                    --provenance=false \
-                                    --sbom=false \
-                                    -t ${env.ACC_ID}.dkr.ecr.${env.REGION}.amazonaws.com/${env.PROJECT}/${env.COMPONENT}:${env.APP_VERSION} \
-                                    --push 
+                                aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com
+                                docker build -t ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion} .
+                                docker push ${ACC_ID}.dkr.ecr.us-east-1.amazonaws.com/${PROJECT}/${COMPONENT}:${appVersion}
+                                #aws ecr wait image-scan-complete --repository-name ${PROJECT}/${COMPONENT} --image-id imageTag=${appVersion} --region ${REGION}
                             """
                         }
                     }
                 }
             }
-           
             stage('Trigger Deploy') {
                 when {
                     expression {
