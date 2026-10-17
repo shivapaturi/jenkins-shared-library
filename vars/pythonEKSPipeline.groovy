@@ -27,11 +27,11 @@ def call(Map configMap){
                     }
                 }
             }
-            stage('Install Dependencies') {
+           stage('Install Dependencies') {
                 steps {
                     script {
                     sh """
-                        pip3 install -r requiremenst.txt
+                        pip3 install -r requirements.txt
                     """
                     }
                 }
