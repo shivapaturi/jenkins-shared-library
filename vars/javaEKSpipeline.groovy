@@ -18,14 +18,12 @@ def call(Map configMap){
             booleanParam(name: 'deploy', defaultValue: false, description: 'Toggle this value')
         }
         // Build
-        stages {
+         stages {
             stage('Read pom.xml') {
                 steps {
                     script {
-                        def pom = readMavenPom file: 'pom.xml'
-                        env.APP_VERSION = pom.version
-
-                        echo "Application version: ${env.APP_VERSION}"
+                        appVersion = readMavenPom().getVersion()
+                        echo "app version: ${appVersion}"
                     }
                 }
             }
@@ -33,7 +31,7 @@ def call(Map configMap){
                 steps {
                     script {
                     sh """
-                            mvn clean package
+                        mvn clean package 
                     """
                     }
                 }
